@@ -23,10 +23,6 @@
             Start Camera
         </button>
 
-        <button id="addPersonBtn" class="secondary-btn">
-            Add More Person
-        </button>
-
         <button id="downloadBtn" class="download-btn">
             Download Final Photo
         </button>
@@ -37,7 +33,7 @@
 
     </div>
 
-    <!-- ===== CUSTOM POPUP (Replaces alert) ===== -->
+    <!-- ===== CUSTOM POPUP ===== -->
     <div id="customPopup" class="popup hidden">
         <div class="popup-box">
             <p id="popupMessage"></p>
@@ -51,7 +47,8 @@
         <p>Processing AI...</p>
     </div>
 
-    <!-- ===== MEDIAPIPE ===== -->
+    <!-- ===== MEDIAPIPE SCRIPTS (ORDER MATTERS) ===== -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js"></script>
 
     <!-- ===== MAIN SCRIPT ===== -->
