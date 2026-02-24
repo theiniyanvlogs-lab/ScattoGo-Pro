@@ -9,21 +9,16 @@ const captureBtn = document.getElementById("captureBtn");
 const downloadBtn = document.getElementById("downloadBtn");
 const switchBtn = document.getElementById("switchBtn");
 
-const countdown = document.getElementById("countdown");
 const loadingOverlay = document.getElementById("loadingOverlay");
 
 // ==========================
 // STATE
 // ==========================
-let stream = null;
-let useFrontCamera = true;
-let cameraStarted = false;
-
 let backgroundImageData = null;
 let peopleLayers = [];
-
-let aiProcessing = false;
-let captureRequested = false;
+let cameraInstance = null;
+let useFrontCamera = true;
+let captureNextFrame = false;
 
 // ==========================
 // MEDIAPIPE SETUP
@@ -40,38 +35,32 @@ selfieSegmentation.setOptions({
 selfieSegmentation.onResults(handleResults);
 
 // ==========================
-// UI HELPERS
-// ==========================
-function showPopup(message) {
-  document.getElementById("popupMessage").innerText = message;
-  document.getElementById("customPopup").classList.remove("hidden");
-}
-
-function hideLoading() {
-  loadingOverlay.classList.add("hidden");
-}
-
-function showLoading() {
-  loadingOverlay.classList.remove("hidden");
-}
-
-// ==========================
-// CAMERA
+// START CAMERA USING MEDIAPIPE CAMERA CLASS
 // ==========================
 async function startCamera() {
 
-  if (stream) {
-    stream.getTracks().forEach(track => track.stop());
+  if (cameraInstance) {
+    cameraInstance.stop();
   }
 
-  stream = await navigator.mediaDevices.getUserMedia({
+  const stream = await navigator.mediaDevices.getUserMedia({
     video: { facingMode: useFrontCamera ? "user" : "environment" }
   });
 
   video.srcObject = stream;
-  await video.play();
 
-  cameraStarted = true;
+  cameraInstance = new Camera(video, {
+    onFrame: async () => {
+      if (captureNextFrame) {
+        captureNextFrame = false;
+        await selfieSegmentation.send({ image: video });
+      }
+    },
+    width: 640,
+    height: 480
+  });
+
+  cameraInstance.start();
 }
 
 switchBtn.addEventListener("click", async () => {
@@ -84,7 +73,7 @@ switchBtn.addEventListener("click", async () => {
 // ==========================
 captureBtn.addEventListener("click", async () => {
 
-  if (!cameraStarted) {
+  if (!video.srcObject) {
     await startCamera();
     captureBtn.innerText = "Lock Background";
     return;
@@ -93,25 +82,19 @@ captureBtn.addEventListener("click", async () => {
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
 
-  // FIRST CLICK = LOCK BACKGROUND
+  // LOCK BACKGROUND
   if (!backgroundImageData) {
     ctx.drawImage(video, 0, 0);
     backgroundImageData = canvas.toDataURL("image/png");
     renderPreview();
     captureBtn.innerText = "Add Person";
-    showPopup("Background locked. Now add people.");
+    alert("Background locked. Now add people.");
     return;
   }
 
   // ADD PERSON
-  if (aiProcessing) return;
-
-  aiProcessing = true;
-  captureRequested = true;
-  showLoading();
-
-  // 🔥 SEND VIDEO DIRECTLY (MOST STABLE)
-  await selfieSegmentation.send({ image: video });
+  loadingOverlay.classList.remove("hidden");
+  captureNextFrame = true;
 });
 
 // ==========================
@@ -119,14 +102,10 @@ captureBtn.addEventListener("click", async () => {
 // ==========================
 function handleResults(results) {
 
-  if (!captureRequested) return;
-
-  captureRequested = false;
+  loadingOverlay.classList.add("hidden");
 
   if (!results.segmentationMask) {
-    hideLoading();
-    aiProcessing = false;
-    showPopup("Segmentation failed.");
+    alert("Segmentation failed.");
     return;
   }
 
@@ -135,26 +114,14 @@ function handleResults(results) {
   personCanvas.height = canvas.height;
   const personCtx = personCanvas.getContext("2d");
 
-  // Draw mask
   personCtx.drawImage(results.segmentationMask, 0, 0);
 
-  // Smooth edges
-  personCtx.filter = "blur(2px)";
-  personCtx.drawImage(personCanvas, 0, 0);
-  personCtx.filter = "none";
-
-  // Keep only person
   personCtx.globalCompositeOperation = "source-in";
   personCtx.drawImage(results.image, 0, 0);
 
   peopleLayers.push(personCanvas.toDataURL("image/png"));
 
   renderPreview();
-
-  hideLoading();
-  aiProcessing = false;
-
-  showPopup("Person added successfully!");
 }
 
 // ==========================
@@ -188,7 +155,7 @@ function renderPreview() {
 downloadBtn.addEventListener("click", () => {
 
   if (!backgroundImageData) {
-    showPopup("Nothing to download.");
+    alert("Nothing to download.");
     return;
   }
 
