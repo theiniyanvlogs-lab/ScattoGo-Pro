@@ -25,6 +25,7 @@ let peopleLayers = [];
 
 let processing = false;
 let aiProcessing = false;
+let aiTimeout = null;
 
 // ==========================
 // MEDIAPIPE SETUP
@@ -35,8 +36,7 @@ const selfieSegmentation = new SelfieSegmentation({
 });
 
 selfieSegmentation.setOptions({
-    modelSelection: 1,
-    smoothSegmentation: true
+    modelSelection: 1
 });
 
 selfieSegmentation.onResults(handleResults);
@@ -58,10 +58,19 @@ function closePopup() {
 // ==========================
 function showLoading() {
     loadingOverlay.classList.remove("hidden");
+
+    // Safety timeout (never stuck again)
+    aiTimeout = setTimeout(() => {
+        hideLoading();
+        aiProcessing = false;
+        processing = false;
+        showPopup("AI timeout. Please try again.");
+    }, 8000);
 }
 
 function hideLoading() {
     loadingOverlay.classList.add("hidden");
+    clearTimeout(aiTimeout);
 }
 
 // ==========================
@@ -94,9 +103,7 @@ async function startCamera() {
     }
 
     stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-            facingMode: useFrontCamera ? "user" : "environment"
-        }
+        video: { facingMode: useFrontCamera ? "user" : "environment" }
     });
 
     video.srcObject = stream;
@@ -130,60 +137,65 @@ captureBtn.addEventListener("click", async () => {
 
     ctx.drawImage(video, 0, 0);
 
-    // FIRST CAPTURE → BACKGROUND LOCK
+    // LOCK BACKGROUND
     if (!backgroundImageData) {
         backgroundImageData = canvas.toDataURL("image/png");
         renderPreview();
-        showPopup("Background locked! Now add people.");
+        showPopup("Background locked. Now add people.");
         captureBtn.innerText = "Add Person";
         processing = false;
         return;
     }
 
-    // AFTER BACKGROUND LOCK → ADD PERSON
-    addPersonFromCurrentFrame();
+    addPerson();
 });
 
 // ==========================
-// ADD PERSON BUTTON
+// ADD PERSON
 // ==========================
-addPersonBtn.addEventListener("click", () => {
-    if (!backgroundImageData) {
-        showPopup("Please lock background first.");
-        return;
-    }
-    addPersonFromCurrentFrame();
-});
-
-// ==========================
-// ADD PERSON LOGIC
-// ==========================
-async function addPersonFromCurrentFrame() {
+async function addPerson() {
 
     if (aiProcessing) return;
 
-    showLoading();
     aiProcessing = true;
+    showLoading();
 
-    // Capture static frame
-    const tempCanvas = document.createElement("canvas");
-    tempCanvas.width = canvas.width;
-    tempCanvas.height = canvas.height;
-    const tempCtx = tempCanvas.getContext("2d");
-    tempCtx.drawImage(video, 0, 0);
+    try {
 
-    const secondImage = new Image();
-    secondImage.src = tempCanvas.toDataURL("image/png");
+        const tempCanvas = document.createElement("canvas");
+        tempCanvas.width = canvas.width;
+        tempCanvas.height = canvas.height;
+        const tempCtx = tempCanvas.getContext("2d");
+        tempCtx.drawImage(video, 0, 0);
 
-    secondImage.onload = async () => {
-        await selfieSegmentation.send({ image: secondImage });
-    };
+        const img = new Image();
+        img.src = tempCanvas.toDataURL("image/png");
+
+        img.onload = async () => {
+            await selfieSegmentation.send({ image: img });
+        };
+
+    } catch (err) {
+        console.error(err);
+        hideLoading();
+        aiProcessing = false;
+        processing = false;
+        showPopup("AI failed. Try again.");
+    }
 }
 
 // ==========================
-// HANDLE AI RESULTS
+// HANDLE RESULTS
 // ==========================
 function handleResults(results) {
+
+    if (!results || !results.image || !results.segmentationMask) {
+        hideLoading();
+        aiProcessing = false;
+        processing = false;
+        showPopup("AI processing error.");
+        return;
+    }
 
     const personCanvas = document.createElement("canvas");
     personCanvas.width = canvas.width;
@@ -191,16 +203,16 @@ function handleResults(results) {
     const personCtx = personCanvas.getContext("2d");
 
     // Draw mask
-    personCtx.drawImage(results.segmentationMask, 0, 0, canvas.width, canvas.height);
+    personCtx.drawImage(results.segmentationMask, 0, 0);
+
+    // Smooth edges
+    personCtx.filter = "blur(2px)";
+    personCtx.drawImage(personCanvas, 0, 0);
+    personCtx.filter = "none";
 
     // Keep only person
     personCtx.globalCompositeOperation = "source-in";
-    personCtx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
-
-    // Slight brightness match
-    personCtx.filter = "brightness(1.05) contrast(1.05)";
-    personCtx.drawImage(personCanvas, 0, 0);
-    personCtx.filter = "none";
+    personCtx.drawImage(results.image, 0, 0);
 
     peopleLayers.push(personCanvas.toDataURL("image/png"));
 
@@ -210,7 +222,7 @@ function handleResults(results) {
     aiProcessing = false;
     processing = false;
 
-    showPopup("Person added! You can add more.");
+    showPopup("Person added successfully!");
 }
 
 // ==========================
@@ -239,12 +251,12 @@ function renderPreview() {
 }
 
 // ==========================
-// DOWNLOAD FINAL
+// DOWNLOAD
 // ==========================
 downloadBtn.addEventListener("click", () => {
 
     if (!backgroundImageData) {
-        showPopup("Nothing to download yet.");
+        showPopup("Nothing to download.");
         return;
     }
 
@@ -253,21 +265,3 @@ downloadBtn.addEventListener("click", () => {
     link.download = "ScattoGo_Pro_Final.png";
     link.click();
 });
-
-// ==========================
-// RESET
-// ==========================
-function resetApp() {
-    backgroundImageData = null;
-    peopleLayers = [];
-    processing = false;
-    aiProcessing = false;
-    cameraStarted = false;
-    captureBtn.innerText = "Start Camera";
-
-    if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-    }
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-}
