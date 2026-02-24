@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>ScattoGo - AI Group Photo</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- Camera Preview -->
+    <div class="camera-container">
+        <video id="video" autoplay playsinline></video>
+        <div id="countdown" class="countdown"></div>
+    </div>
+
+    <!-- Hidden Canvas -->
+    <canvas id="canvas" style="display:none;"></canvas>
+
+    <!-- Controls -->
+    <div class="controls">
+        <button id="captureBtn" class="main-btn">
+            Start Camera
+        </button>
+
+        <button id="switchBtn" class="switch-btn">
+            Switch Camera (Front / Back)
+        </button>
+    </div>
+
+    <!-- MediaPipe AI -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js"></script>
+
+    <!-- Your Script -->
+    <script src="script.js"></script>
+
+</body>
+</html>
