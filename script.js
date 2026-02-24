@@ -25,7 +25,6 @@ let peopleLayers = [];
 
 let processing = false;
 let aiProcessing = false;
-let aiTimeout = null;
 
 // ==========================
 // MEDIAPIPE SETUP
@@ -58,19 +57,10 @@ function closePopup() {
 // ==========================
 function showLoading() {
     loadingOverlay.classList.remove("hidden");
-
-    // Safety timeout (never stuck again)
-    aiTimeout = setTimeout(() => {
-        hideLoading();
-        aiProcessing = false;
-        processing = false;
-        showPopup("AI timeout. Please try again.");
-    }, 8000);
 }
 
 function hideLoading() {
     loadingOverlay.classList.add("hidden");
-    clearTimeout(aiTimeout);
 }
 
 // ==========================
@@ -151,7 +141,7 @@ captureBtn.addEventListener("click", async () => {
 });
 
 // ==========================
-// ADD PERSON
+// ADD PERSON (FIXED VERSION)
 // ==========================
 async function addPerson() {
 
@@ -162,18 +152,16 @@ async function addPerson() {
 
     try {
 
+        // Create static canvas frame
         const tempCanvas = document.createElement("canvas");
         tempCanvas.width = canvas.width;
         tempCanvas.height = canvas.height;
         const tempCtx = tempCanvas.getContext("2d");
-        tempCtx.drawImage(video, 0, 0);
 
-        const img = new Image();
-        img.src = tempCanvas.toDataURL("image/png");
+        tempCtx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-        img.onload = async () => {
-            await selfieSegmentation.send({ image: img });
-        };
+        // 🔥 SEND CANVAS DIRECTLY (NO IMAGE OBJECT)
+        await selfieSegmentation.send({ image: tempCanvas });
 
     } catch (err) {
         console.error(err);
@@ -185,15 +173,15 @@ async function addPerson() {
 }
 
 // ==========================
-// HANDLE RESULTS
+// HANDLE RESULTS (SAFE)
 // ==========================
 function handleResults(results) {
 
-    if (!results || !results.image || !results.segmentationMask) {
+    if (!results || !results.segmentationMask) {
         hideLoading();
         aiProcessing = false;
         processing = false;
-        showPopup("AI processing error.");
+        showPopup("Segmentation failed.");
         return;
     }
 
@@ -205,7 +193,7 @@ function handleResults(results) {
     // Draw mask
     personCtx.drawImage(results.segmentationMask, 0, 0);
 
-    // Smooth edges
+    // Feather edges
     personCtx.filter = "blur(2px)";
     personCtx.drawImage(personCanvas, 0, 0);
     personCtx.filter = "none";
