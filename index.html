@@ -2,37 +2,59 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>ScattoGo - AI Group Photo</title>
+    <title>ScattoGo-Pro | AI Group Photo</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-    <!-- Camera Preview -->
+    <!-- ===== CAMERA SECTION ===== -->
     <div class="camera-container">
         <video id="video" autoplay playsinline></video>
+        <canvas id="canvas"></canvas>
         <div id="countdown" class="countdown"></div>
     </div>
 
-    <!-- Hidden Canvas -->
-    <canvas id="canvas" style="display:none;"></canvas>
-
-    <!-- Controls -->
+    <!-- ===== CONTROLS ===== -->
     <div class="controls">
+
         <button id="captureBtn" class="main-btn">
             Start Camera
         </button>
 
-        <button id="switchBtn" class="switch-btn">
-            Switch Camera (Front / Back)
+        <button id="addPersonBtn" class="secondary-btn">
+            Add More Person
         </button>
+
+        <button id="downloadBtn" class="download-btn">
+            Download Final Photo
+        </button>
+
+        <button id="switchBtn" class="switch-btn">
+            Switch Camera
+        </button>
+
     </div>
 
-    <!-- MediaPipe AI -->
+    <!-- ===== CUSTOM POPUP (Replaces alert) ===== -->
+    <div id="customPopup" class="popup hidden">
+        <div class="popup-box">
+            <p id="popupMessage"></p>
+            <button onclick="closePopup()" class="popup-btn">OK</button>
+        </div>
+    </div>
+
+    <!-- ===== LOADING OVERLAY ===== -->
+    <div id="loadingOverlay" class="loading hidden">
+        <div class="loader"></div>
+        <p>Processing AI...</p>
+    </div>
+
+    <!-- ===== MEDIAPIPE ===== -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js"></script>
 
-    <!-- Your Script -->
+    <!-- ===== MAIN SCRIPT ===== -->
     <script src="script.js"></script>
 
 </body>
